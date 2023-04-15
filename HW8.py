@@ -15,7 +15,14 @@ def load_rest_data(db):
     and each inner key is a dictionary, where the key:value pairs should be the category, 
     building, and rating for the restaurant.
     """
-    pass
+    path = os.path.dirname(os.path.abspath(__file__))
+    conn = sqlite3.connect(path+'/'+db)
+    cur = conn.cursor()
+    dict = {}
+    cur.execute('SELECT restaurants.name, restaurants.rating, categories.category, buildings.building FROM restaurants JOIN categories ON restaurants.category_id = categories.id JOIN buildings ON restaurants.building_id = buildings.id')
+    for restaurant in cur: 
+        dict[restaurant[0]] = {'rating': restaurant[1], 'category': restaurant[2], 'building': restaurant[3]}
+    return dict
 
 def plot_rest_categories(db):
     """
@@ -23,7 +30,27 @@ def plot_rest_categories(db):
     restaurant categories and the values should be the number of restaurants in each category. The function should
     also create a bar chart with restaurant categories and the count of number of restaurants in each category.
     """
-    pass
+    path = os.path.dirname(os.path.abspath(__file__))
+    conn = sqlite3.connect(path+'/'+db)
+    cur = conn.cursor()
+    dict = {}
+    cur.execute('SELECT categories.category FROM restaurants JOIN categories ON restaurants.category_id = categories.id')
+    for restaurant in cur:
+        if not restaurant[0] in dict:
+            dict[restaurant[0]] = 1
+        else:
+            dict[restaurant[0]] += 1
+    names = []
+    values = []
+    for restaurant in dict:
+        names.append(restaurant)
+        values.append(dict[restaurant])
+    fig, ax = plt.subplots()
+    ax.barh(names, values)
+    ax.set_xlabel('Average Rating')
+    ax.set_autoscale_on
+    fig.savefig('categories.png')
+    return dict
 
 def find_rest_in_building(building_num, db):
     '''
@@ -31,7 +58,14 @@ def find_rest_in_building(building_num, db):
     restaurant names. You need to find all the restaurant names which are in the specific building. The restaurants 
     should be sorted by their rating from highest to lowest.
     '''
-    pass
+    path = os.path.dirname(os.path.abspath(__file__))
+    conn = sqlite3.connect(path+'/'+db)
+    cur = conn.cursor()
+    list = []
+    cur.execute('SELECT restaurants.name FROM restaurants JOIN buildings ON restaurants.building_id = buildings.id WHERE buildings.building = ? ORDER BY restaurants.rating DESC', (building_num, ))
+    for restaurant in cur:
+        list.append(restaurant[0])
+    return list
 
 #EXTRA CREDIT
 def get_highest_rating(db): #Do this through DB as well
@@ -45,7 +79,61 @@ def get_highest_rating(db): #Do this through DB as well
     The second bar chart displays the buildings along the y-axis and their ratings along the x-axis 
     in descending order (by rating).
     """
-    pass
+    data = load_rest_data(db)
+    categories_dict = {} #key = category name, value = sum of ratings
+    building_dict = {} #key = building name, value = sum of ratings
+    for restaurant in data:
+        if not data[restaurant]['category'] in categories_dict:
+            categories_dict[data[restaurant]['category']] = data[restaurant]['rating']
+        else:
+            categories_dict[data[restaurant]['category']] += data[restaurant]['rating']
+        if not data[restaurant]['building'] in building_dict:
+            building_dict[data[restaurant]['building']] = data[restaurant]['rating']
+        else:
+            building_dict[data[restaurant]['building']] += data[restaurant]['rating']
+    #divide by num in category/building to get average + find max category/building
+    num_in_categories = plot_rest_categories(db)
+    max_category = ""
+    max_category_rating = 0
+    max_building = ""
+    max_building_rating = 0
+    category_names = []
+    category_ratings = []
+    building_names = []
+    building_ratings = []
+    for category in categories_dict:
+        categories_dict[category] /= num_in_categories[category]
+        category_names.append(category)
+        category_ratings.append(categories_dict[category])
+        if categories_dict[category] > max_category_rating:
+            max_category_rating = categories_dict[category]
+            max_category = category
+    for building in building_dict:
+        num_in_building = len(find_rest_in_building(building, db))
+        building_dict[building] /= num_in_building
+        building_names.append(building)
+        building_ratings.append(building_dict[building])
+        if building_dict[building] > max_building_rating:
+            max_building_rating = building_dict[building]
+            max_building = building
+    list = []
+    list.append((max_category, max_category_rating))
+    list.append((max_building, max_building_rating))
+    sorted_categories = sorted(categories_dict, reverse = True)
+    sorted_buildings = sorted(building_dict, reverse = True)
+    for category in sorted_categories:
+        category_names.append(category)
+        category_ratings.append(categories_dict[category])
+    for building in sorted_buildings:
+        building_names.append(str(building))
+        building_ratings.append(building_dict[building])
+    plt.figure(1, figsize = (8,8))
+    plt.subplot(131)
+    plt.barh(category_names, category_ratings)
+    plt.subplot(132)
+    plt.barh(building_names, building_ratings)
+    plt.show()
+    return list
 
 #Try calling your functions here
 def main():
